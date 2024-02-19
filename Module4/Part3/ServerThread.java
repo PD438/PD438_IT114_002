@@ -15,8 +15,14 @@ public class ServerThread extends Thread {
     private Server server;// ref to our server so we can call methods on it
     // more easily
 
+    @SuppressWarnings("deprecation")
     private void info(String message) {
-        System.out.println(String.format("Thread[%s]: %s", getId(), message));
+        try {
+            System.out.println(String.format("Thread[%s]: %s", getId(), message));
+        } catch (Exception e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 
     public ServerThread(Socket myClient, Server server) {
@@ -47,6 +53,7 @@ public class ServerThread extends Thread {
         }
     }
 
+    @SuppressWarnings("deprecation")
     @Override
     public void run() {
         info("Thread starting");
