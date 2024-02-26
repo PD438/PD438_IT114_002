@@ -1,3 +1,4 @@
+package M2;
 import java.util.Arrays;
 
 public class Problem1 {
@@ -20,7 +21,7 @@ public class Problem1 {
         //edited by  pd438 2/5/2024 for loop sets up array to be read by each values
         for(int i=0; i<arr.length; i++) {
             if(arr[i]%2!=0) {
-                System.err.print(arr[i]+ " ");
+                System.out.print(arr[i]+ " ");
             }
         }
         

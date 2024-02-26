@@ -1,3 +1,4 @@
+package M2;
 import java.util.Arrays;
 import java.lang.Math;
 
@@ -21,19 +22,34 @@ public class Problem3 {
         Object[] output = new Object[arr.length];
 
         for (int i = 0; i < arr.length; i++) {
-            if (arr[i] instanceof Number) {
-                if (arr[i] instanceof Integer) {
-                    output[i] = Math.abs((Integer) arr[i]);
-                } else if (arr[i] instanceof Double) {
-                    output[i] = Math.abs((Double) arr[i]);
-                }
-            } else if (arr[i] instanceof String) {
-                    output[i] = Math.abs(Integer.parseInt((String) arr[i]));
-                    output[i] = arr[i];
-            } else {
-                output[i] = arr[i];
+           T t = arr[i];
+           if (t instanceof String){
+            String x = t + " ";
+           }
+           else if (t instanceof Integer) {
+            String x = t + "";
+            int newVal = -1;
+            try{
+                newVal = Integer.parseInt(x);
             }
+            catch (Exception e){
+
+            }
+            if (newVal < 0) {
+                newVal = newVal * -1;
+            }
+            output[i]=newVal + "";
         }
+        else if (t instanceof Integer) {
+            int x = (int) t;
+            output[i] = Math.abs(x);
+
+        }else {
+            double x =(double) t;
+            output[i] = Math.abs(x);
+        }
+        }
+
 
         StringBuilder sb = new StringBuilder();
         for (Object i : output) {
