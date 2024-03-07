@@ -110,7 +110,7 @@ public class NumberGuesser4 {
         //  add other conditions here
         //pd438 2/12/2024 if statement prints guess is lower if the guess is higher than the number generated, and the else if statement does complete opposite.
         else if (number < strToNum(message)) {
-            System.out.println("Need a Lower Guess");
+            System.out.println("Guess Lower");
             //firstpart option4 code below, if guess is higher subtracts generated number from guess to see if guess is close, and does the opposite.
             if ((strToNum(message)-number)>= 4) {
                 System.out.println("Your Answer is Far");
@@ -118,7 +118,7 @@ public class NumberGuesser4 {
         }
         else if (number > strToNum(message)) {
             System.out.println("Need a Higher Guess");
-            // second part for option4
+            // second part if the code for option4 
             if ((number - strToNum(message))<4){
                 System.out.println("Your Answer is Close");
             }
@@ -174,6 +174,7 @@ public class NumberGuesser4 {
         try (Scanner input = new Scanner(System.in);) {
             System.out.println("Welcome to NumberGuesser4.0");
             System.out.println("To exit, type the word 'quit'.");
+            System.out.println("Who are You??");
             loadState();
             do {
                 if (pickNewRandom) {
