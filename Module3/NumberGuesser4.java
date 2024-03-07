@@ -108,7 +108,8 @@ public class NumberGuesser4 {
             processed = true;
         }
         //  add other conditions here
-        //pd438 2/12/2024 if statement prints guess is lower if the guess is higher than the number generated, and the else if statement does complete opposite.
+        //pd438 2/12/2024 option 1 and 4 
+        //if statement prints guess is lower if the guess is higher than the number generated, and the else if statement does complete opposite.
         else if (number < strToNum(message)) {
             System.out.println("Guess Lower");
             //firstpart option4 code below, if guess is higher subtracts generated number from guess to see if guess is close, and does the opposite.
