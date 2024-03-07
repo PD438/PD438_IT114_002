@@ -1,3 +1,4 @@
+package M2;
 import java.util.Arrays;
 import java.lang.Math;
 
@@ -17,9 +18,9 @@ public class Problem3 {
     static <T> void bePositive(T[] arr) {
         System.out.println("Processing Array:" + Arrays.toString(arr));
 
-        // pd438 2/5/2024 Create an array to store the positive values
+        // Create an array to store the positive values
         Object[] output = new Object[arr.length];
-
+        //pd438 3/6/2024 created a for loop here 
         for (int i = 0; i < arr.length; i++) {
             if (arr[i] instanceof Number) {
                 if (arr[i] instanceof Integer) {
