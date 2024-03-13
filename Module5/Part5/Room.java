@@ -129,7 +129,8 @@ public class Room implements AutoCloseable{
 	// Command helper methods
 	protected static void createRoom(String roomName, ServerThread client) {
 		if (server.createNewRoom(roomName)) {
-			server.joinRoom(roomName, client);
+			//server.joinRoom(roomName, client);
+			Room.joinRoom(roomName, client);
 		} else {
 			client.sendMessage("Server", String.format("Room %s already exists", roomName));
 		}
@@ -188,14 +189,12 @@ public class Room implements AutoCloseable{
 	}
 	private void handleDisconnect(Iterator<ServerThread> iter, ServerThread client){
 		iter.remove();
-		info("Removed client " + client.getId());
+		info("Removed client " + client.getClientName());
 		checkClients();
-		sendMessage(null, client.getId() + " disconnected");
+		sendMessage(null, client.getClientName() + " disconnected");
 	}
 	public void close() {
 		server.removeRoom(this);
-		//NOTE: This will break all rooms
-		//be sure to remove/comment out server = null;
 		server = null;
 		isRunning = false;
 		clients = null;

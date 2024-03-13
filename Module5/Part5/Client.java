@@ -190,7 +190,7 @@ public class Client {
                 try {
                     Payload fromServer;
 
-                    // while we're connected, listen for payload from server
+                    // while we're connected, listen for strings from server
                     while (!server.isClosed() && !server.isInputShutdown()
                             && (fromServer = (Payload) in.readObject()) != null) {
 

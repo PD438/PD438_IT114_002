@@ -69,7 +69,7 @@ public class ServerThread extends Thread {
     }
     public boolean sendConnectionStatus(String who, boolean isConnected){
         Payload p = new Payload();
-        p.setPayloadType(PayloadType.MESSAGE);
+        p.setPayloadType(isConnected?PayloadType.CONNECT:PayloadType.DISCONNECT);
         p.setClientName(who);
         p.setMessage(isConnected?"connected":"disconnected");
         return send(p);
