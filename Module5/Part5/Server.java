@@ -8,7 +8,7 @@ import java.util.Iterator;
 import java.util.List;
 
 public class Server {
-    int port = 3001;
+    int port = 3000;
     // connected clients
     // private List<ServerThread> clients = new ArrayList<ServerThread>();
     private List<Room> rooms = new ArrayList<Room>();
