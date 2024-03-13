@@ -1,3 +1,4 @@
+package M2;
 import java.util.Arrays;
 import java.text.DecimalFormat;
 
@@ -21,7 +22,8 @@ public class Problem2 {
 
         // pd438 2/5/2024 Calculate the sum of the elements in the array
         for (int i = 0; i < arr.length; i++) {
-            total += arr[i];
+            double a = arr[i];
+            total += a;
         }
 
         // Format the total to a string with rounding to two decimal places
@@ -30,7 +32,10 @@ public class Problem2 {
 
         // set the double to a string variable
         //  ensure rounding is to two decimal places (i.e., 0.10, 0.01, 1.00)
-        totalOutput = total + "";
+        total *= 100.0;
+        total = Math.round(total);
+        total /= 100;
+        totalOutput = String.format("%.2f", total) + "";
 
         // end add/edit section
         System.out.println("Total is " + totalOutput);
