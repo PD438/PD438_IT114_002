@@ -1,6 +1,5 @@
 package Project;
 
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -19,7 +18,7 @@ public class ServerThread extends Thread {
     private Room currentRoom;
 
     private void info(String message) {
-        System.out.println(String.format("Thread[%s]: %s", getId(), message));
+        System.out.println(String.format("Thread[%s]: %s", getClientName(), message));
     }
 
     public ServerThread(Socket myClient, Room room) {
@@ -68,11 +67,12 @@ public class ServerThread extends Thread {
         p.setMessage(message);
         return send(p);
     }
-    public boolean sendConnectionStatus(String who, boolean isConnected){
+
+    public boolean sendConnectionStatus(String who, boolean isConnected) {
         Payload p = new Payload();
-        p.setPayloadType(isConnected?PayloadType.CONNECT:PayloadType.DISCONNECT);
+        p.setPayloadType(isConnected ? PayloadType.CONNECT : PayloadType.DISCONNECT);
         p.setClientName(who);
-        p.setMessage(isConnected?"connected":"disconnected");
+        p.setMessage(isConnected ? "connected" : "disconnected");
         return send(p);
     }
 
@@ -127,7 +127,7 @@ public class ServerThread extends Thread {
             case CONNECT:
                 setClientName(p.getClientName());
                 break;
-            case DISCONNECT://TBD
+            case DISCONNECT:// TBD
                 break;
             case MESSAGE:
                 if (currentRoom != null) {
