@@ -10,67 +10,37 @@ import java.util.List;
 
 public class Server {
     int port = 3001;
-    // connected clients
-    // private List<ServerThread> clients = new ArrayList<ServerThread>();
-    private List<Room> rooms = new ArrayList<Room>();
-    private Room lobby = null;// default room
+    private List<Room> rooms = new ArrayList<>();
+    private Room lobby = null;
 
     private void start(int port) {
         this.port = port;
-        // server listening
-        try (ServerSocket serverSocket = new ServerSocket(port);) {
-            Socket incoming_client = null;
+        try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("Server is listening on port " + port);
-            // Reference server statically
-            Room.server = this;// all rooms will have the same reference
-            // create a lobby on start
+            Room.server = this;
             lobby = new Room("Lobby");
             rooms.add(lobby);
+            Socket incoming_client = null; // Initialize here
             do {
                 System.out.println("Waiting For The Next Client");
                 if (incoming_client != null) {
                     System.out.println("Client connected");
                     ServerThread sClient = new ServerThread(incoming_client, lobby);
                     sClient.start();
-
                     joinRoom("lobby", sClient);
                     incoming_client = null;
-
                 }
             } while ((incoming_client = serverSocket.accept()) != null);
         } catch (IOException e) {
             System.err.println("Error accepting connection");
             e.printStackTrace();
         } finally {
-            System.out.println("closing server socket");
+            System.out.println("Closing server socket");
         }
     }
 
-    /***
-     * Helper function to check if room exists by case insensitive name
-     * 
-     * @param roomName The name of the room to look for
-     * @return matched Room or null if not found
-     */
-    private Room getRoom(String roomName) {
-        for (int i = 0, l = rooms.size(); i < l; i++) {
-            if (rooms.get(i).getName().equalsIgnoreCase(roomName)) {
-                return rooms.get(i);
-            }
-        }
-        return null;
-    }
-
-    /***
-     * Attempts to join a room by name. Will remove client from old room and add
-     * them to the new room.
-     * 
-     * @param roomName The desired room to join
-     * @param client   The client moving rooms
-     * @return true if reassign worked; false if new room doesn't exist
-     */
     protected synchronized boolean joinRoom(String roomName, ServerThread client) {
-        Room newRoom = roomName.equalsIgnoreCase("lobby")?lobby:getRoom(roomName);
+        Room newRoom = roomName.equalsIgnoreCase("lobby") ? lobby : getRoom(roomName);
         Room oldRoom = client.getCurrentRoom();
         if (newRoom != null) {
             if (oldRoom != null) {
@@ -81,21 +51,13 @@ public class Server {
             newRoom.addClient(client);
             return true;
         } else {
-            client.sendMessage("Server",
-                    String.format("Room %s wasn't found, please try another", roomName));
+            client.sendMessage("Server", String.format("Room %s wasn't found, please try another", roomName));
         }
         return false;
     }
 
-    /***
-     * Attempts to create a room with given name if it doesn't exist already.
-     * 
-     * @param roomName The desired room to create
-     * @return true if it was created and false if it exists
-     */
     protected synchronized boolean createNewRoom(String roomName) {
         if (getRoom(roomName) != null) {
-            // TODO can't create room
             System.out.println(String.format("Room %s already exists", roomName));
             return false;
         } else {
@@ -114,10 +76,8 @@ public class Server {
 
     protected synchronized void broadcast(String message) {
         if (processCommand(message)) {
-
             return;
         }
-        // loop over rooms and send out the message
         Iterator<Room> it = rooms.iterator();
         while (it.hasNext()) {
             Room room = it.next();
@@ -129,8 +89,27 @@ public class Server {
 
     private boolean processCommand(String message) {
         System.out.println("Checking command: " + message);
-        // TODO
+        if (message.equalsIgnoreCase("start game")) {
+            int result = flipCoin();
+            String outcome = (result == 0) ? "Heads" : "Tails";
+            String gameMessage = "Coin flip result: " + outcome;
+            broadcast(gameMessage);
+            return true;
+        }
         return false;
+    }
+
+    private int flipCoin() {
+        return (int) (Math.random() * 2); // 0 for heads, 1 for tails
+    }
+
+    Room getRoom(String roomName) {
+        for (int i = 0, l = rooms.size(); i < l; i++) {
+            if (rooms.get(i).getName().equalsIgnoreCase(roomName)) {
+                return rooms.get(i);
+            }
+        }
+        return null;
     }
 
     public static void main(String[] args) {

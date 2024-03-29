@@ -1,5 +1,4 @@
 package Project;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -98,6 +97,18 @@ public class Client {
         return false;
     }
 
+    private boolean isStartGame(String text) {
+        return text.equalsIgnoreCase("/start game");
+    }
+
+    private void startGame() {
+        try {
+            sendMessage("/start game"); // Send command to server to start the game
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     /**
      * Controller for handling various text commands.
      * <p>
@@ -123,6 +134,9 @@ public class Client {
             isRunning = false;
             return true;
         } else if (isName(text)) {
+            return true;
+        } else if (isStartGame(text)) {
+            startGame(); // Handle starting the game
             return true;
         }
         return false;
@@ -228,8 +242,11 @@ public class Client {
                         p.getClientName(),
                         p.getMessage()));
                 break;
-            default:
+                default:
+                System.out.println("Coin flip result: " + p.getMessage());
                 break;
+                
+            
 
         }
     }
