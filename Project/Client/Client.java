@@ -13,10 +13,14 @@ import java.util.logging.Logger;
 
 import Project.Common.ConnectionPayload;
 import Project.Common.Constants;
+import Project.Common.EliminationPayload;
 import Project.Common.Payload;
 import Project.Common.PayloadType;
+import Project.Common.Phase;
+import Project.Common.ReadyPayload;
 import Project.Common.RoomResultsPayload;
 import Project.Common.TextFX;
+import Project.Common.TurnStatusPayload;
 import Project.Common.TextFX.Color;
 
 public enum Client {
@@ -37,12 +41,20 @@ public enum Client {
     private static final String LIST_ROOMS = "/listrooms";
     private static final String LIST_USERS = "/users";
     private static final String DISCONNECT = "/disconnect";
+    private static final String READY_CHECK = "/ready";
+    private static final String SIMULATE_TURN = "/turn";
+    //pd438 4/3/2024
+    private static final String ROCK = "/Rock";
+    private static final String PAPER = "/Paper";
+    private static final String SCISSOR  = "/Scissor";
 
     // client id, is the key, client name is the value
-    private ConcurrentHashMap<Long, String> clientsInRoom = new ConcurrentHashMap<Long, String>();
+    // private ConcurrentHashMap<Long, String> clientsInRoom = new
+    // ConcurrentHashMap<Long, String>();
+    private ConcurrentHashMap<Long, ClientPlayer> clientsInRoom = new ConcurrentHashMap<Long, ClientPlayer>();
     private long myClientId = Constants.DEFAULT_CLIENT_ID;
     private Logger logger = Logger.getLogger(Client.class.getName());
-
+    private Phase currentPhase = Phase.READY;
 
 
     public boolean isConnected() {
@@ -174,9 +186,16 @@ public enum Client {
             }
             return true;
         } else if (text.equalsIgnoreCase(LIST_USERS)) {
-            logger.info("Users in Room: ");
-            clientsInRoom.forEach(((t, u) -> {
-                logger.info(String.format("%s - %s", t, u));
+            System.out.println(TextFX.colorize("Users in Room: ", Color.CYAN));
+            clientsInRoom.forEach(((clientId, u) -> {
+                System.out.println(TextFX.colorize((String.format("%s - %s [%s] %s %s",
+                        clientId,
+                        u.getClientName(),
+                        u.isReady(),
+                        u.didTakeTurn() ? "*" : "",
+                        u.isMyTurn() ? "<--" : "")),
+
+                        Color.CYAN));
             }));
             return true;
         }
@@ -189,10 +208,63 @@ public enum Client {
             }
             return true;
         }
+        else if (text.equalsIgnoreCase(READY_CHECK)) {
+            try {
+                sendReadyCheck();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
+        else if (text.equalsIgnoreCase(SIMULATE_TURN)) {
+            try {
+                sendTakeTurn("Turn");
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
+        //pd438 4/3/2024
+        else if (text.equalsIgnoreCase(ROCK)) {
+            try {
+                sendTakeTurn("Rock"); 
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
+        else if (text.equalsIgnoreCase(PAPER)) {
+            try {
+                sendTakeTurn("Paper"); 
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
+        else if (text.equalsIgnoreCase(SCISSOR)) {
+            try {
+                sendTakeTurn("Scissor"); 
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return true;
+        }
         return false;
     }
 
     // Send methods
+    private void sendTakeTurn(String choice) throws IOException {
+        // TurnStatusPayload (only if I need to actually send a boolean)
+        Payload p = new Payload();
+        //pd438 4/8/2024
+        p.setPayloadType(PayloadType.TURN);
+        p.setMessage(choice);
+        out.writeObject(p);
+    }
+    private void sendReadyCheck() throws IOException {
+        ReadyPayload rp = new ReadyPayload();
+        out.writeObject(rp);
+    }
     private void sendDisconnect() throws IOException {
         ConnectionPayload cp = new ConnectionPayload();
         cp.setPayloadType(PayloadType.DISCONNECT);
@@ -310,7 +382,10 @@ public enum Client {
 
     private void addClientReference(long id, String name) {
         if (!clientsInRoom.containsKey(id)) {
-            clientsInRoom.put(id, name);
+            ClientPlayer cp = new ClientPlayer();
+            cp.setClientId(id);
+            cp.setClientName(name);
+            clientsInRoom.put(id, cp);
         }
     }
 
@@ -322,7 +397,7 @@ public enum Client {
 
     private String getClientNameFromId(long id) {
         if (clientsInRoom.containsKey(id)) {
-            return clientsInRoom.get(id);
+            return clientsInRoom.get(id).getClientName();
         }
         if (id == Constants.DEFAULT_CLIENT_ID) {
             return "[Room]";
@@ -391,6 +466,79 @@ public enum Client {
                     e.printStackTrace();
                 }
                 break;
+            case READY:
+                try {
+                    ReadyPayload rp = (ReadyPayload) p;
+                    if (clientsInRoom.containsKey(rp.getClientId())) {
+                        clientsInRoom.get(rp.getClientId()).setReady(rp.isReady());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                break;
+            case PHASE:
+                try {
+                    currentPhase = Enum.valueOf(Phase.class, p.getMessage());
+                } catch (IllegalArgumentException e) {
+                    e.printStackTrace();
+                } catch (NullPointerException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case TURN:
+                try {
+                    TurnStatusPayload tsp = (TurnStatusPayload) p;
+                    if (clientsInRoom.containsKey(tsp.getClientId())) {
+                        clientsInRoom.get(tsp.getClientId()).setTakenTurn(tsp.didTakeTurn());
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                break;
+            //pd438 
+                case CHOICE:
+            try {
+                String playerChoice = p.getMessage();
+                System.out.println(TextFX.colorize("You Chosen"+playerChoice, Color.PURPLE));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            break;
+            case RESET_TURNS:
+                clientsInRoom.values().stream().forEach(c -> {
+                    c.setTakenTurn(false);
+                    c.setMyTurn(false);
+                });
+                break;
+            case RESET_READY:
+                clientsInRoom.values().stream().forEach(c -> c.setReady(false));
+                break;
+            case CURRENT_TURN:
+                /*
+                 * if (clientsInRoom.containsKey(p.getClientId())) {
+                 * clientsInRoom.get(p.getClientId()).setMyTurn(true);
+                 * }
+                 */
+                clientsInRoom.values().stream().forEach(c -> {
+                    boolean isMyTurn = c.getClientId() == p.getClientId();
+                    c.setMyTurn(isMyTurn);
+                    if (isMyTurn) {
+                        System.out.println(
+                                TextFX.colorize(String.format("It's %s's turn", c.getClientName()), Color.PURPLE));
+                    }
+                });
+                break;
+            case ELIMINATION:
+            try {
+                EliminationPayload ep = (EliminationPayload) p;
+                boolean isEliminated;
+                isEliminated = ep.isEliminated();
+
+                if(isEliminated == true){System.out.println(TextFX.colorize("You are Out!", Color.RED));}
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            // case END_SESSION: //clearing all local player data
             default:
                 break;
 
