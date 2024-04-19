@@ -55,6 +55,7 @@ public class ServerThread extends Thread {
     protected boolean isRunning() {
         return isRunning;
     }
+
     protected void setClientName(String name) {
         if (name == null || name.isBlank()) {
             logger.severe("Invalid client name being set");
@@ -111,6 +112,7 @@ public class ServerThread extends Thread {
         tsp.setDidTakeTurn(didTakeTurn);
         return send(tsp);
     }
+
     protected boolean sendReadyState(long clientId, boolean isReady) {
         ReadyPayload rp = new ReadyPayload();
         rp.setReady(isReady);
@@ -124,6 +126,7 @@ public class ServerThread extends Thread {
         p.setMessage(phase);
         return send(p);
     }
+
     protected boolean sendClientMapping(long id, String name) {
         ConnectionPayload cp = new ConnectionPayload();
         cp.setPayloadType(PayloadType.SYNC_CLIENT);
@@ -145,6 +148,7 @@ public class ServerThread extends Thread {
         cp.setClientName(clientName);
         return send(cp);
     }
+
     private boolean sendListRooms(List<String> potentialRooms) {
         RoomResultsPayload rp = new RoomResultsPayload();
         rp.setRooms(potentialRooms);
@@ -164,15 +168,16 @@ public class ServerThread extends Thread {
         p.setMessage(message);
         return send(p);
     }
-    //pd438 4/8/2024 sendChoice Option
-    public boolean sendChoice(String choice){
-        Payload ccp = new Payload();
-        ccp.setPayloadType(PayloadType.CHOICE);
-        ccp.setMessage(choice);
-        return send(ccp);
+
+    // pd438 4/8/2024 sendChoice Option
+    public boolean sendChoice(String choice) {
+        Payload p = new Payload();
+        p.setPayloadType(PayloadType.CHOICE);
+        p.setMessage(choice);
+        return send(p);
     }
-    
-    public boolean sendElimination(boolean isEliminated){
+        //pd438 send Elimination method
+    public boolean sendElimination(boolean isEliminated) {
         EliminationPayload ep = new EliminationPayload();
         ep.setPayloadType(PayloadType.ELIMINATION);
         ep.setElimination(isEliminated);
@@ -218,20 +223,15 @@ public class ServerThread extends Thread {
     @Override
     public void run() {
         info("Thread starting");
-        try (ObjectOutputStream out = new ObjectOutputStream(client.getOutputStream());
-                ObjectInputStream in = new ObjectInputStream(client.getInputStream());) {
-            this.out = out;
+        try {
+            out = new ObjectOutputStream(client.getOutputStream());
             isRunning = true;
+            ObjectInputStream in = new ObjectInputStream(client.getInputStream());
             Payload fromClient;
-            while (isRunning && // flag to let us easily control the loop
-                    (fromClient = (Payload) in.readObject()) != null // reads an object from inputStream (null would
-                                                                     // likely mean a disconnect)
-            ) {
-
+            while (isRunning && (fromClient = (Payload) in.readObject()) != null) {
                 info("Received from client: " + fromClient);
                 processPayload(fromClient);
-
-            } // close while loop
+            }
         } catch (Exception e) {
             // happens when client disconnects
             e.printStackTrace();
@@ -303,7 +303,7 @@ public class ServerThread extends Thread {
             case TURN:
                 try {
                     ((GameRoom) currentRoom).doTurn(this, p.getMessage());
-                    
+
                 } catch (Exception e) {
                     e.printStackTrace();
                     this.sendMessage(Constants.DEFAULT_CLIENT_ID,

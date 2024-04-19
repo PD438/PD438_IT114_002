@@ -1,13 +1,11 @@
 package Project.Server;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-
 import Project.Common.Constants;
 import Project.Common.Phase;
 import Project.Common.Player;
@@ -17,17 +15,12 @@ import Project.Common.TextFX.Color;
 
 public class GameRoom extends Room {
 
-    private ConcurrentHashMap<Long, ServerPlayer> players = new ConcurrentHashMap<Long, ServerPlayer>();
-
+    private ConcurrentHashMap<Long, ServerPlayer> players = new ConcurrentHashMap<>();
     private TimedEvent readyCheckTimer = null;
     private TimedEvent turnTimer = null;
     private Phase currentPhase = Phase.READY;
-    private long numActivePlayers = 0;
-    private boolean canEndSession = false;
     private ServerPlayer currentPlayer = null;
-    private List<Long> turnOrder = new ArrayList<Long>();
-
-    private boolean meetsMinimum;
+    private List<Long> turnOrder = new ArrayList<>();
 
     public GameRoom(String name) {
         super(name);
@@ -41,11 +34,8 @@ public class GameRoom extends Room {
             players.put(client.getClientId(), sp);
             System.out.println(TextFX.colorize(client.getClientName() + " join GameRoom " + getName(), Color.WHITE));
 
-            // sync game state
-
-            // sync phase
             sp.sendPhase(currentPhase);
-            // sync ready state
+
             players.values().forEach(p -> {
                 sp.sendReadyState(p.getClientId(), p.isReady());
                 sp.sendPlayerTurnStatus(p.getClientId(), p.didTakeTurn());
@@ -53,23 +43,18 @@ public class GameRoom extends Room {
             if (currentPlayer != null) {
                 sp.sendCurrentPlayerTurn(currentPlayer.getClientId());
             }
-
         }
     }
 
     @Override
     protected synchronized void removeClient(ServerThread client) {
         super.removeClient(client);
-        // Note: base Room can close (if empty) before GameRoom cleans up (possibly)
         if (players.containsKey(client.getClientId())) {
             players.remove(client.getClientId());
             System.out.println(TextFX.colorize(client.getClientName() + " left GameRoom " + getName(), Color.WHITE));
-            // update active players in case an active player left
-            numActivePlayers = players.values().stream().filter(ServerPlayer::isReady).count();
         }
     }
 
-    // serverthread interactions
     public synchronized void setReady(ServerThread client) {
         if (currentPhase != Phase.READY) {
             client.sendMessage(Constants.DEFAULT_CLIENT_ID, "Can't initiate ready check at this time");
@@ -77,75 +62,54 @@ public class GameRoom extends Room {
         }
         long playerId = client.getClientId();
         if (players.containsKey(playerId)) {
-            // players.get(playerId).setReady(!players.get(playerId).isReady()); //<--
-            // toggles ready state
-            players.get(playerId).setReady(true);// <-- simply sets the ready state to true
+            players.get(playerId).setReady(true);
             syncReadyState(players.get(playerId));
-            System.out.println(TextFX.colorize(players.get(playerId).getClientName() + " marked themselves as ready ",
-                    Color.YELLOW));
+            System.out.println(TextFX.colorize(players.get(playerId).getClientName() + " marked themselves as ready ", Color.YELLOW));
             readyCheck();
         } else {
             System.err.println(TextFX.colorize("Player doesn't exist: " + client.getClientName(), Color.RED));
         }
     }
 
-    public synchronized void doTurn(ServerThread client, String Choice) {
+    public synchronized void doTurn(ServerThread client, String choice) {
         if (currentPhase != Phase.TURN) {
             client.sendMessage(Constants.DEFAULT_CLIENT_ID, "You can't do turns just yet");
             return;
         }
 
-        // implementation 1
         long clientId = client.getClientId();
         if (players.containsKey(clientId)) {
             ServerPlayer sp = players.get(clientId);
-            // implementation 2 (even though it's nested)
-            // check current player's turn
-          
-            // they can only participate if they're ready
             if (!sp.isReady()) {
-                client.sendMessage(Constants.DEFAULT_CLIENT_ID,
-                        "Sorry, you weren't ready in time and can't participate");
+                client.sendMessage(Constants.DEFAULT_CLIENT_ID, "Sorry, you weren't ready in time and can't participate");
                 return;
             }
-            //pd438 4/8/2024 player can only update their turn "actions" once
             if (!sp.didTakeTurn()) {
-                sp.setChoice(Choice);
-                sp.sendChoice(Choice);
+                sp.setChoice(choice);
+                sp.sendChoice(choice);
                 sp.setTakenTurn(true);
-                sendMessage(ServerConstants.FROM_ROOM, String.format("%s completed their turn"+Choice, sp.getClientName()));
+                sendMessage(ServerConstants.FROM_ROOM, String.format("%s completed their turn", sp.getClientName()));
                 syncUserTookTurn(sp);
-                // implemention 2 (end turn immediately)
                 if (currentPlayer != null && currentPlayer.didTakeTurn()) {
                     handleEndOfTurn();
-
                 }
             } else {
                 client.sendMessage(Constants.DEFAULT_CLIENT_ID, "You already completed your turn, please wait");
             }
         }
-
     }
-    // end serverthread interactions
-
+        //pd438 4/19/2024 Displays timer when user hits ready for the first time.
     private synchronized void readyCheck() {
-
         if (readyCheckTimer == null) {
             readyCheckTimer = new TimedEvent(30, () -> {
-                long numReady = players.values().stream().filter(p -> {
-                    return p.isReady();
-                }).count();
-                // condition 1: start if we have the minimum ready
+                long numReady = players.values().stream().filter(Player::isReady).count();
                 boolean meetsMinimum = numReady >= Constants.MINIMUM_REQUIRED_TO_START;
-                // condition 2: start if everyone is ready
                 int totalPlayers = players.size();
                 boolean everyoneIsReady = numReady >= totalPlayers;
-                if (meetsMinimum || everyoneIsReady&& meetsMinimum) {
+                if (meetsMinimum || (everyoneIsReady && meetsMinimum)) {
                     start();
                 } else {
-                    sendMessage(ServerConstants.FROM_ROOM,
-                            "Minimum players not met during ready check, please try again");
-                    // added after recording as I forgot to reset the ready check
+                    sendMessage(ServerConstants.FROM_ROOM, "Minimum players not met during ready check, please try again");
                     players.values().forEach(p -> {
                         p.setReady(false);
                         syncReadyState(p);
@@ -156,20 +120,183 @@ public class GameRoom extends Room {
             });
             readyCheckTimer.setTickCallback((time) -> System.out.println("Ready Countdown: " + time));
         }
-        //readycheck pd438
-        long numReady = players.values().stream().filter(p -> {
-            return p.isReady();
-        }).count();
+
+        long numReady = players.values().stream().filter(Player::isReady).count();
         int totalPlayers = players.size();
-                boolean everyoneIsReady = numReady >= totalPlayers;
-                if (everyoneIsReady && meetsMinimum) {
-                    if(readyCheckTimer !=null){
-                        readyCheckTimer.cancel();
-                        readyCheckTimer = null;
-                    }
-                    System.out.println(TextFX.colorize("Everyone is Here!! Lets play", Color.GREEN));
-                    start();
-                }
+        boolean everyoneIsReady = numReady >= totalPlayers;
+        if (everyoneIsReady) {
+            if (readyCheckTimer != null) {
+                readyCheckTimer.cancel();
+                readyCheckTimer = null;
+            }
+            System.out.println(TextFX.colorize("Everyone is Here!! Lets play", Color.GREEN));
+            start();
+        }
+    }
+
+    private void start() {
+        if (currentPhase != Phase.READY) {
+            System.err.println("Invalid phase called during start()");
+            return;
+        }
+        changePhase(Phase.TURN);
+        setupTurns();
+        startTurnTimer();
+    }
+        // 4/19/2024 pd438 displays randomized turn
+    private void setupTurns() {
+        turnOrder = new ArrayList<>(players.keySet());
+        Collections.shuffle(turnOrder);
+        currentPlayer = players.get(turnOrder.get(0));
+        System.out.println(TextFX.colorize("First person is " + currentPlayer.getClientName(), Color.YELLOW));
+        sendCurrentPlayerTurn();
+    }
+
+    private void nextTurn() {
+        int index = turnOrder.indexOf(currentPlayer.getClientId());
+        index = (index + 1) % turnOrder.size();
+        currentPlayer = players.get(turnOrder.get(index));
+        System.out.println(TextFX.colorize("Next person is " + currentPlayer.getClientName(), Color.YELLOW));
+        sendCurrentPlayerTurn();
+    }
+        //pd438 4/19/2024 This displays the timer for the person to let them know how much time they have left. 
+    private void startTurnTimer() {
+        if (turnTimer != null) {
+            turnTimer.cancel();
+            turnTimer = null;
+        }
+        if (turnTimer == null) {
+            turnTimer = new TimedEvent(30, this::handleEndOfTurn);
+            turnTimer.setTickCallback(this::checkEarlyEndTurn);
+            sendMessage(ServerConstants.FROM_ROOM, "Pick your actions");
+        }
+    }
+
+    private void checkEarlyEndTurn(int timeRemaining) {
+        if (currentPlayer != null && currentPlayer.didTakeTurn()) {
+            handleEndOfTurn();
+        }
+    }
+//pd438 4/19/2024
+    private void handleEndOfTurn() {
+        if (turnTimer != null) {
+            turnTimer.cancel();
+            turnTimer = null;
+        }
+        System.out.println(TextFX.colorize("Handling end of turn", Color.YELLOW));
+
+        List<ServerPlayer> playerList = new ArrayList<>(players.values());
+        ServerPlayer eliminatedPlayer = resolveGame(playerList);
+
+        if (eliminatedPlayer != null) {
+            removeClient(eliminatedPlayer.getServerThread());
+            eliminatedPlayer.getServerThread().sendMessage(Constants.DEFAULT_CLIENT_ID, "You have been eliminated!");
+            sendMessage(ServerConstants.FROM_ROOM, TextFX.colorize(eliminatedPlayer.getClientName() + " is eliminated!", Color.RED));
+            if (players.size() == 1) {
+                end();
+                return;
+            }
+        }
+
+        resetTurns();
+        nextTurn();
+
+        if (currentPhase != Phase.READY && players.size() > 2) {
+            startTurnTimer();
+        } else if (currentPhase != Phase.READY && players.size() == 2) {
+            handleEndOfGame(); // Immediately resolve the game when there are only two players left
+        }
+    }
+    //pd438 4/19/2024 This displays what happens when end of game occurs. 
+    private void handleEndOfGame() {
+        System.out.println(TextFX.colorize("Handling end of game", Color.YELLOW));
+
+        // Resolve the game based on the choices of the two players
+        List<ServerPlayer> playerList = new ArrayList<>(players.values());
+        ServerPlayer eliminatedPlayer = resolveGame(playerList);
+
+        if (eliminatedPlayer != null) {
+            removeClient(eliminatedPlayer.getServerThread());
+            eliminatedPlayer.getServerThread().sendMessage(Constants.DEFAULT_CLIENT_ID, "You have been eliminated!");
+            sendMessage(ServerConstants.FROM_ROOM, TextFX.colorize(eliminatedPlayer.getClientName() + " is eliminated!", Color.RED));
+            end(); // End the game
+        }
+    }
+        
+    private ServerPlayer resolveGame(List<ServerPlayer> players) {
+        String[] choices = players.stream().map(ServerPlayer::getChoice).toArray(String[]::new);
+        String[] uniqueChoices = Arrays.stream(choices).distinct().toArray(String[]::new);
+
+        if (uniqueChoices.length == 1) {
+            sendMessage(ServerConstants.FROM_ROOM, "It's a tie!");
+            return null;
+        }
+
+        if (uniqueChoices.length == 3 || uniqueChoices.length == 1) {
+            return null; // No elimination if everyone chose differently or if everyone chose the same
+        }
+
+        String choice1 = uniqueChoices[0];
+        String choice2 = uniqueChoices[1];
+
+        String winnerChoice = getWinnerChoice(choice1, choice2);
+
+        ServerPlayer eliminatedPlayer = null;
+        for (ServerPlayer player : players) {
+            if (!player.getChoice().equalsIgnoreCase(winnerChoice)) {
+                eliminatedPlayer = player;
+                break;
+            }
+        }
+
+        return eliminatedPlayer;
+    }
+        //pd438 4/19/2024
+    private String getWinnerChoice(String choice1, String choice2) {
+        if (choice1 == null || choice2 == null) {
+            // Handle null choices here, return a default winner or null
+            return null;
+        }
+
+        if (choice1.equalsIgnoreCase("rock") && choice2.equalsIgnoreCase("scissors")) {
+            return "rock";
+        } else if (choice1.equalsIgnoreCase("scissors") && choice2.equalsIgnoreCase("paper")) {
+            return "scissors";
+        } else if (choice1.equalsIgnoreCase("paper") && choice2.equalsIgnoreCase("rock")) {
+            return "paper";
+        } else {
+            // If not explicitly defined, second choice wins
+            return choice2;
+        }
+    }
+
+    private void resetTurns() {
+        players.values().forEach(p -> p.setTakenTurn(false));
+        sendResetLocalTurns();
+    }
+
+    private void end() {
+        System.out.println(TextFX.colorize("Doing game over", Color.YELLOW));
+        turnOrder.clear();
+        players.clear();
+        changePhase(Phase.READY);
+        sendMessage(ServerConstants.FROM_ROOM, "You Win!!! Game over! Start a new game by setting up players and issuing ready checks.");
+    }
+
+    private void sendCurrentPlayerTurn() {
+        Iterator<ServerPlayer> iter = players.values().iterator();
+        while (iter.hasNext()) {
+            ServerPlayer sp = iter.next();
+            sp.sendCurrentPlayerTurn(currentPlayer == null ? Constants.DEFAULT_CLIENT_ID : currentPlayer.getClientId());
+        }
+    }
+
+    private void sendResetLocalTurns() {
+        players.values().forEach(ServerPlayer::sendResetLocalTurns);
+    }
+
+    private void syncUserTookTurn(ServerPlayer isp) {
+        players.values().forEach(sp -> sp.sendPlayerTurnStatus(isp.getClientId(), isp.didTakeTurn()));
     }
 
     private void changePhase(Phase incomingChange) {
@@ -179,202 +306,11 @@ public class GameRoom extends Room {
         }
     }
 
-    private void start() {
-        if (currentPhase != Phase.READY) {
-            System.err.println("Invalid phase called during start()");
-            return;
-        }
-        canEndSession = false;
-        changePhase(Phase.TURN);
-        numActivePlayers = players.values().stream().filter(ServerPlayer::isReady).count();
-        setupTurns();
-        startTurnTimer();
-    }
-
-    private void setupTurns() {
-        turnOrder = players.values().stream().filter(ServerPlayer::isReady).map(p -> p.getClientId())
-                .collect(Collectors.toList());
-        Collections.shuffle(turnOrder);
-        Long currentPlayerId = turnOrder.get(0);
-        currentPlayer = players.get(currentPlayerId);
-        System.out.println(TextFX.colorize("First person is " + currentPlayer.getClientName(), Color.YELLOW));
-        sendCurrentPlayerTurn();
-    }
-
-    private void nextTurn() {
-
-        int index = currentPlayer == null ? 0 : turnOrder.indexOf(currentPlayer.getClientId());
-        System.out.println(TextFX.colorize("Current turn index is " + index, Color.YELLOW));
-        index++;
-        if (index >= turnOrder.size()) {
-            index = 0;
-        }
-        currentPlayer = players.get(turnOrder.get(index));
-        System.out.println(TextFX.colorize("Next person is " + currentPlayer.getClientName(), Color.YELLOW));
-        sendCurrentPlayerTurn();
-    }
-
-    private void startTurnTimer() {
-        if (turnTimer != null) {
-            turnTimer.cancel();
-            turnTimer = null;
-        }
-        if (turnTimer == null) {
-            // turnTimer = new TimedEvent(60, ()-> {handleEndOfTurn();});
-            turnTimer = new TimedEvent(60, this::handleEndOfTurn);
-            turnTimer.setTickCallback(this::checkEarlyEndTurn);
-            sendMessage(ServerConstants.FROM_ROOM, "Pick your actions");
-        }
-    }
-    
-    
-    
-    private void checkEarlyEndTurn(int timeRemaining) {
-        // implementation 1
-        /*
-         * long numEnded =
-         * players.values().stream().filter(ServerPlayer::didTakeTurn).count();
-         * if (numEnded >= numActivePlayers) {
-         * // end turn early
-         * handleEndOfTurn();
-         * }
-         */
-
-        // implementation 2
-        if (currentPlayer != null && currentPlayer.didTakeTurn()) {
-            handleEndOfTurn();
-
-        }
-    }
-
-    private void handleEndOfTurn() {
-        if (turnTimer != null) {
-            turnTimer.cancel();
-            turnTimer = null;
-        }
-        System.out.println(TextFX.colorize("Handling end of turn", Color.YELLOW));
-        // option 1 - if they can only do a turn when ready
-        List<ServerPlayer> playersToProcess = players.values().stream().filter(ServerPlayer::didTakeTurn).toList();
-        // option 2 - double check they are ready and took a turn
-        // List<ServerPlayer> playersToProcess =
-        // players.values().stream().filter(sp->sp.isReady() &&
-        // sp.didTakeTurn()).toList();
-        playersToProcess.forEach(p -> {
-            sendMessage(ServerConstants.FROM_ROOM, String.format("%s did something for the game", p.getClientName()));
-        });
-
-        // end game logic
-        //pd438 4/10/2024
-        for(int i = 0; i < playersToProcess.size();i++){
-            int n = 1;
-            n = n+i;
-            
-            boolean isEliminated = false;
-            ServerPlayer getAttacker = playersToProcess.get(i);
-            ServerPlayer getDefender = playersToProcess.get(n);
-            String getAttackerChoice = getAttacker.getChoice();
-            String getDefenderChoice = getDefender.getChoice();
-
-            if(getAttackerChoice == "Rock" && getDefenderChoice=="Paper"){
-                isEliminated = true;
-            }
-            else if (getAttackerChoice == "Paper" && getDefenderChoice=="Rock")
-            { isEliminated = true;}
-            else if(getAttackerChoice =="Scissor" && getDefenderChoice=="Paper"){
-                isEliminated = true;
-            }
-            else{isEliminated=false;}
-
-        }
-
-       
-
-    
-
-        if (new Random().nextInt(101) <= 30) {
-            canEndSession = true;
-            // simulate end game
-            end();
-        } else {
-            resetTurns();
-            // implementation 2
-            nextTurn();
-            // end implementation 2
-            startTurnTimer();
-        }
-    }
-
-    private void resetTurns() {
-        players.values().stream().forEach(p -> p.setTakenTurn(false));
-        sendResetLocalTurns();
-    }
-
-    private void end() {
-        System.out.println(TextFX.colorize("Doing game over", Color.YELLOW));
-        turnOrder.clear();
-        // mark everyone not ready
-        players.values().forEach(p -> {
-            //  fix/optimize, avoid nested loops if/when possible
-            p.setReady(false);
-            p.setTakenTurn(false);
-            // reduce being wasteful
-            // syncReadyState(p);
-        });
-        // depending if this is not called yet, we can clear this state here too
-        sendResetLocalReadyState();
-        sendResetLocalTurns();
-        changePhase(Phase.READY);
-        sendMessage(ServerConstants.FROM_ROOM, "Session over!");
-        // , eventually will be more optimal to just send that the session ended
-
-    }
-
-    // start send/sync methods
-    private void sendCurrentPlayerTurn() {
-        Iterator<ServerPlayer> iter = players.values().iterator();
-        while (iter.hasNext()) {
-            ServerPlayer sp = iter.next();
-            sp.sendCurrentPlayerTurn(currentPlayer == null ? Constants.DEFAULT_CLIENT_ID : currentPlayer.getClientId());
-        }
-    }
-
-    private void sendResetLocalReadyState() {
-        Iterator<ServerPlayer> iter = players.values().iterator();
-        while (iter.hasNext()) {
-            ServerPlayer sp = iter.next();
-            sp.sendResetLocalReadyState();
-        }
-    }
-
-    private void sendResetLocalTurns() {
-        Iterator<ServerPlayer> iter = players.values().iterator();
-        while (iter.hasNext()) {
-            ServerPlayer sp = iter.next();
-            sp.sendResetLocalTurns();
-        }
-    }
-
-    private void syncUserTookTurn(ServerPlayer isp) {
-        Iterator<ServerPlayer> iter = players.values().iterator();
-        while (iter.hasNext()) {
-            ServerPlayer sp = iter.next();
-            sp.sendPlayerTurnStatus(isp.getClientId(), isp.didTakeTurn());
-        }
-    }
     private void syncCurrentPhase() {
-        Iterator<ServerPlayer> iter = players.values().iterator();
-        while (iter.hasNext()) {
-            ServerPlayer sp = iter.next();
-            sp.sendPhase(currentPhase);
-        }
+        players.values().forEach(t -> t.sendPhase(currentPhase));
     }
 
     private void syncReadyState(ServerPlayer csp) {
-        Iterator<ServerPlayer> iter = players.values().iterator();
-        while (iter.hasNext()) {
-            ServerPlayer sp = iter.next();
-            sp.sendReadyState(csp.getClientId(), csp.isReady());
-        }
+        players.values().forEach(sp -> sp.sendReadyState(csp.getClientId(), csp.isReady()));
     }
-    // end send/sync methods
 }

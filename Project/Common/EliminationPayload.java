@@ -1,7 +1,7 @@
 package Project.Common;
 
 public class EliminationPayload extends Payload {
-    //pd438
+    //pd438 4/29/2024
     private boolean isEliminated;
 
     public boolean isEliminated() {
