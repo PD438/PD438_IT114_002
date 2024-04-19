@@ -7,26 +7,26 @@ import Project.Common.TextFX;
 import Project.Common.TextFX.Color;
 
 public class ServerPlayer extends Player {
-    private ServerThread client;
+    private ServerThread serverThread;
     private String choice; // Add this field to store player's choice
-
+//pd438 4/19/2024
     public ServerPlayer(ServerThread t) {
-        client = t;
+        serverThread = t;
         System.out.println(TextFX.colorize("Wrapped ServerThread " + t.getClientName(), Color.CYAN));
     }
 
     public long getClientId() {
-        if (client == null) {
+        if (serverThread == null) {
             return Constants.DEFAULT_CLIENT_ID;
         }
-        return client.getClientId();
+        return serverThread.getClientId();
     }
 
     public String getClientName() {
-        if (client == null) {
+        if (serverThread == null) {
             return "";
         }
-        return client.getClientName();
+        return serverThread.getClientName();
     }
 
     // Getter and setter for the choice field
@@ -39,59 +39,62 @@ public class ServerPlayer extends Player {
     }
 
     public void sendPhase(Phase phase) {
-        if (client == null) {
+        if (serverThread == null) {
             return;
         }
-        client.sendPhase(phase.name());
+        serverThread.sendPhase(phase.name());
     }
 
     public void sendReadyState(long clientId, boolean isReady) {
-        if (client == null) {
+        if (serverThread == null) {
             return;
         }
-        client.sendReadyState(clientId, isReady);
+        serverThread.sendReadyState(clientId, isReady);
     }
 
     public void sendPlayerTurnStatus(long clientId, boolean didTakeTurn) {
-        if (client == null) {
+        if (serverThread == null) {
             return;
         }
-        client.sendPlayerTurnStatus(clientId, didTakeTurn);
+        serverThread.sendPlayerTurnStatus(clientId, didTakeTurn);
     }
 
     public void sendResetLocalTurns() {
-        if (client == null) {
+        if (serverThread == null) {
             return;
         }
-        client.sendResetLocalTurns();
+        serverThread.sendResetLocalTurns();
     }
 
     public void sendResetLocalReadyState() {
-        if (client == null) {
+        if (serverThread == null) {
             return;
         }
-        client.sendResetLocalReadyState();
+        serverThread.sendResetLocalReadyState();
     }
 
     public void sendCurrentPlayerTurn(long clientId) {
-        if (client == null) {
+        if (serverThread == null) {
             return;
         }
-        client.sendCurrentPlayerTurn(clientId);
+        serverThread.sendCurrentPlayerTurn(clientId);
     }
-    //pd438 
+
     public synchronized void sendChoice(String playerChoice){
-        if (client == null) {
+        if (serverThread == null) {
             return;
         }
-        
-        
+        serverThread.sendChoice(playerChoice);
     }
 
     public void sendElimination(boolean isEliminated){
-        if (client == null){
+        if (serverThread == null){
             return;
         }
-        client.sendElimination(isEliminated);
+        serverThread.sendElimination(isEliminated);
+    }
+
+    public ServerThread getServerThread() {
+        return serverThread;
     }
 }

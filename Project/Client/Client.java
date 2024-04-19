@@ -300,7 +300,7 @@ public enum Client {
         out.writeObject(p);
     }
 
-    private void sendMessage(String message) throws IOException {
+    public void sendMessage(String message) throws IOException {
         Payload p = new Payload();
         p.setPayloadType(PayloadType.MESSAGE);
         p.setMessage(message);
@@ -495,11 +495,11 @@ public enum Client {
                     e.printStackTrace();
                 }
                 break;
-            //pd438 
+            //pd438 4/10/2024
                 case CHOICE:
             try {
                 String playerChoice = p.getMessage();
-                System.out.println(TextFX.colorize("You Chosen"+playerChoice, Color.PURPLE));
+                System.out.println(TextFX.colorize("You have Chosen "+  playerChoice , Color.PURPLE));
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -513,6 +513,8 @@ public enum Client {
             case RESET_READY:
                 clientsInRoom.values().stream().forEach(c -> c.setReady(false));
                 break;
+
+                //pd438 4/19/2024  To Display client side code of the current turn and elimination
             case CURRENT_TURN:
                 /*
                  * if (clientsInRoom.containsKey(p.getClientId())) {
