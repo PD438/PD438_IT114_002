@@ -76,7 +76,7 @@ public enum Client {
      * @param port
      * @return true if connection was successful
      */
-    private boolean connect(String address, int port) {
+    boolean connect(String address, int port) {
         try {
             server = new Socket(address, port);
             // channel to send to server
@@ -261,30 +261,30 @@ public enum Client {
         p.setMessage(choice);
         out.writeObject(p);
     }
-    private void sendReadyCheck() throws IOException {
+    public void sendReadyCheck() throws IOException {
         ReadyPayload rp = new ReadyPayload();
         out.writeObject(rp);
     }
-    private void sendDisconnect() throws IOException {
+    void sendDisconnect() throws IOException {
         ConnectionPayload cp = new ConnectionPayload();
         cp.setPayloadType(PayloadType.DISCONNECT);
         out.writeObject(cp);
     }
-    private void sendCreateRoom(String roomName) throws IOException {
+    public void sendCreateRoom(String roomName) throws IOException {
         Payload p = new Payload();
         p.setPayloadType(PayloadType.CREATE_ROOM);
         p.setMessage(roomName);
         out.writeObject(p);
     }
 
-    private void sendJoinRoom(String roomName) throws IOException {
+    public void sendJoinRoom(String roomName) throws IOException {
         Payload p = new Payload();
         p.setPayloadType(PayloadType.JOIN_ROOM);
         p.setMessage(roomName);
         out.writeObject(p);
     }
 
-    private void sendListRooms(String searchString) throws IOException {
+    public void sendListRooms(String searchString) throws IOException {
         // Updated after video to use RoomResultsPayload so we can (later) use a limit
         // value
         RoomResultsPayload p = new RoomResultsPayload();
@@ -395,7 +395,7 @@ public enum Client {
         }
     }
 
-    private String getClientNameFromId(long id) {
+    String getClientNameFromId(long id) {
         if (clientsInRoom.containsKey(id)) {
             return clientsInRoom.get(id).getClientName();
         }
@@ -536,7 +536,9 @@ public enum Client {
                 boolean isEliminated;
                 isEliminated = ep.isEliminated();
 
-                if(isEliminated == true){System.out.println(TextFX.colorize("You are Out!", Color.RED));}
+                if(isEliminated == true){System.out.println(TextFX.colorize("You are Out!", Color.RED));
+                }
+                if(isEliminated == false){System.out.println(TextFX.colorize("You are still Alive", Color.BLACK));}
             } catch (Exception e) {
                 e.printStackTrace();
             }
@@ -604,4 +606,5 @@ public enum Client {
         }
     }
 
+    
 }

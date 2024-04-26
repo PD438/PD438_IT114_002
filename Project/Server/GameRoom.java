@@ -10,6 +10,7 @@ import Project.Common.Constants;
 import Project.Common.Phase;
 import Project.Common.Player;
 import Project.Common.TextFX;
+import Project.Common.EliminationPayload;
 import Project.Common.TimedEvent;
 import Project.Common.TextFX.Color;
 
@@ -178,101 +179,86 @@ public class GameRoom extends Room {
         }
     }
 //pd438 4/19/2024
-    private void handleEndOfTurn() {
-        if (turnTimer != null) {
-            turnTimer.cancel();
-            turnTimer = null;
-        }
-        System.out.println(TextFX.colorize("Handling end of turn", Color.YELLOW));
-
-        List<ServerPlayer> playerList = new ArrayList<>(players.values());
-        ServerPlayer eliminatedPlayer = resolveGame(playerList);
-
-        if (eliminatedPlayer != null) {
-            removeClient(eliminatedPlayer.getServerThread());
-            eliminatedPlayer.getServerThread().sendMessage(Constants.DEFAULT_CLIENT_ID, "You have been eliminated!");
-            sendMessage(ServerConstants.FROM_ROOM, TextFX.colorize(eliminatedPlayer.getClientName() + " is eliminated!", Color.RED));
-            if (players.size() == 1) {
-                end();
-                return;
-            }
-        }
-
-        resetTurns();
-        nextTurn();
-
-        if (currentPhase != Phase.READY && players.size() > 2) {
-            startTurnTimer();
-        } else if (currentPhase != Phase.READY && players.size() == 2) {
-            handleEndOfGame(); // Immediately resolve the game when there are only two players left
-        }
+private void handleEndOfTurn() {
+    if (turnTimer != null) {
+        turnTimer.cancel();
+        turnTimer = null;
     }
-    //pd438 4/19/2024 This displays what happens when end of game occurs. 
-    private void handleEndOfGame() {
-        System.out.println(TextFX.colorize("Handling end of game", Color.YELLOW));
-
-        // Resolve the game based on the choices of the two players
-        List<ServerPlayer> playerList = new ArrayList<>(players.values());
-        ServerPlayer eliminatedPlayer = resolveGame(playerList);
-
-        if (eliminatedPlayer != null) {
-            removeClient(eliminatedPlayer.getServerThread());
-            eliminatedPlayer.getServerThread().sendMessage(Constants.DEFAULT_CLIENT_ID, "You have been eliminated!");
-            sendMessage(ServerConstants.FROM_ROOM, TextFX.colorize(eliminatedPlayer.getClientName() + " is eliminated!", Color.RED));
-            end(); // End the game
-        }
-    }
+    System.out.println(TextFX.colorize("Handling end of turn", Color.YELLOW));
+    // option 1 - if they can only do a turn when ready
+    List<ServerPlayer> playersToProcess = players.values().stream().filter(p-> p.didTakeTurn() && p.getElimination()== false && p.getChoice() != null).toList();
+    // option 2 - double check they are ready and took a turn
+    // List<ServerPlayer> playersToProcess =
+    // players.values().stream().filter(sp->sp.isReady() &&
+    // sp.didTakeTurn()).toList();
+    playersToProcess.forEach(p -> {
+        sendMessage(ServerConstants.FROM_ROOM, String.format("%s did something for the game", p.getClientName()));
         
-    private ServerPlayer resolveGame(List<ServerPlayer> players) {
-        String[] choices = players.stream().map(ServerPlayer::getChoice).toArray(String[]::new);
-        String[] uniqueChoices = Arrays.stream(choices).distinct().toArray(String[]::new);
-
-        if (uniqueChoices.length == 1) {
-            sendMessage(ServerConstants.FROM_ROOM, "It's a tie!");
-            return null;
+    });
+    // TODO end game logic
+    //pd438 
+    
+    for(int i = 0; i<playersToProcess.size(); i++) {
+        int nextPlayer = i+1; 
+        if(nextPlayer>= playersToProcess.size()) {nextPlayer= 0;}
+        ServerPlayer p1= playersToProcess.get(i); 
+        ServerPlayer p2= playersToProcess.get(nextPlayer);
+        
+        //to display for debugging issues (Rock loses to Paper,Paper loses to Scissor, and Scissor Loses to Paper)
+        if(p1.getChoice().equals("Rock") && p2.getChoice().equals("Paper")){
+            p1.sendElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates"+ p1.getClientName(), Color.YELLOW));
+        } else if (p1.getChoice().equals("Scissor") && p2.getChoice().equals("Rock")) {
+            p1.sendElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates" + p1.getClientName(), Color.YELLOW));
+        } else if(p1.getChoice().equals("Paper") && p2.getChoice().equals("Scissor")) {
+            p1.sendElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates"+ p1.getClientName(), Color.YELLOW));
+        } 
+        else{
+            p1.sendElimination(false);
+        }
+        if(p2.getChoice().equals("Rock") && p1.getChoice().equals("Paper")){
+            p2.sendElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Eliminates"+ p2.getClientName(), Color.YELLOW));
+        } else if (p2.getChoice().equals("Paper") && p1.getChoice().equals("Scissor")) {
+            p2.sendElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Eliminates" + p2.getClientName(), Color.YELLOW));
+        } else if(p2.getChoice().equals("Scissor") && p1.getChoice().equals("Rock")) {
+            p2.sendElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Eliminates"+ p2.getClientName(), Color.YELLOW));
+        } else{
+            p2.sendElimination(false);
+        }
+        //to display for debugging
+        
+        }
+        List<ServerPlayer> playersNotEliminatedList = players.values().stream().filter(p-> p.getElimination()== false).toList();
+        int playersnotEliminated = playersNotEliminatedList.size();
+        sendMessage(ServerConstants.FROM_ROOM, playersnotEliminated+ " Players Left");
+        if(playersnotEliminated>1){
+            sendMessage(ServerConstants.FROM_ROOM, "There are more than 2 left");
+            resetTurns();
+        }
+        else if (playersnotEliminated == 1) {
+            sendMessage(ServerConstants.FROM_ROOM,"We have a Winner!!!");
+            end();
+        }
+        else if(playersnotEliminated == 0){
+            sendMessage(ServerConstants.FROM_ROOM, "We have a Tie!!!");
+            end();
+        }
+            
         }
 
-        if (uniqueChoices.length == 3 || uniqueChoices.length == 1) {
-            return null; // No elimination if everyone chose differently or if everyone chose the same
-        }
 
-        String choice1 = uniqueChoices[0];
-        String choice2 = uniqueChoices[1];
-
-        String winnerChoice = getWinnerChoice(choice1, choice2);
-
-        ServerPlayer eliminatedPlayer = null;
-        for (ServerPlayer player : players) {
-            if (!player.getChoice().equalsIgnoreCase(winnerChoice)) {
-                eliminatedPlayer = player;
-                break;
-            }
-        }
-
-        return eliminatedPlayer;
-    }
-        //pd438 4/19/2024
-    private String getWinnerChoice(String choice1, String choice2) {
-        if (choice1 == null || choice2 == null) {
-            // Handle null choices here, return a default winner or null
-            return null;
-        }
-
-        if (choice1.equalsIgnoreCase("rock") && choice2.equalsIgnoreCase("scissors")) {
-            return "rock";
-        } else if (choice1.equalsIgnoreCase("scissors") && choice2.equalsIgnoreCase("paper")) {
-            return "scissors";
-        } else if (choice1.equalsIgnoreCase("paper") && choice2.equalsIgnoreCase("rock")) {
-            return "paper";
-        } else {
-            // If not explicitly defined, second choice wins
-            return choice2;
-        }
-    }
 
     private void resetTurns() {
         players.values().forEach(p -> p.setTakenTurn(false));
+        players.values().forEach(p -> p.setChoice(null));
         sendResetLocalTurns();
+        changePhase(Phase.READY);
+        start();
     }
 
     private void end() {
@@ -280,7 +266,7 @@ public class GameRoom extends Room {
         turnOrder.clear();
         players.clear();
         changePhase(Phase.READY);
-        sendMessage(ServerConstants.FROM_ROOM, "You Win!!! Game over! Start a new game by setting up players and issuing ready checks.");
+        sendMessage(ServerConstants.FROM_ROOM,  "Game over! Start a new game by setting up players and issuing ready checks.");
     }
 
     private void sendCurrentPlayerTurn() {
