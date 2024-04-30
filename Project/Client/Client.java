@@ -5,11 +5,12 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
-
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Scanner;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Logger;
+import java.util.Scanner;
+
 
 import Project.Common.ConnectionPayload;
 import Project.Common.Constants;
@@ -25,13 +26,12 @@ import Project.Common.TextFX.Color;
 
 public enum Client {
     INSTANCE;
-
     Socket server = null;
-    ObjectOutputStream out = null;
-    ObjectInputStream in = null;
+    private ObjectOutputStream out = null;
+    private ObjectInputStream in = null;
     final String ipAddressPattern = "/connect\\s+(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}:\\d{3,5})";
     final String localhostPattern = "/connect\\s+(localhost:\\d{3,5})";
-    boolean isRunning = false;
+    private boolean isRunning = false;
     private Thread inputThread;
     private Thread fromServerThread;
     private String clientName = "";
@@ -47,7 +47,8 @@ public enum Client {
     private static final String ROCK = "/Rock";
     private static final String PAPER = "/Paper";
     private static final String SCISSOR  = "/Scissor";
-
+    private static final String SWORD = "/Sword";
+    private static final String SHIELD = "/Shield";
     // client id, is the key, client name is the value
     // private ConcurrentHashMap<Long, String> clientsInRoom = new
     // ConcurrentHashMap<Long, String>();
@@ -56,6 +57,12 @@ public enum Client {
     private Logger logger = Logger.getLogger(Client.class.getName());
     private Phase currentPhase = Phase.READY;
 
+     // callback that updates the UI
+    private static List<IClientEvents> events = new ArrayList<IClientEvents>();
+
+    public void addCallback(IClientEvents e) {
+        events.add(e);
+    }
 
     public boolean isConnected() {
         if (server == null) {
@@ -76,7 +83,9 @@ public enum Client {
      * @param port
      * @return true if connection was successful
      */
-    boolean connect(String address, int port) {
+    public boolean connect(String address, int port, String username, IClientEvents callback) {
+        clientName = username;
+        addCallback(callback);
         try {
             server = new Socket(address, port);
             // channel to send to server
@@ -84,7 +93,7 @@ public enum Client {
             // channel to listen to server
             in = new ObjectInputStream(server.getInputStream());
             logger.info("Client connected");
-            listenForServerMessage();
+            listenForServerPayload();
             sendConnect();
         } catch (UnknownHostException e) {
             e.printStackTrace();
@@ -93,6 +102,7 @@ public enum Client {
         }
         return isConnected();
     }
+    
 
     /**
      * <p>
@@ -141,6 +151,7 @@ public enum Client {
      * @param text
      * @return true if a text was a command or triggered a command
      */
+    @Deprecated
     private boolean processClientCommand(String text) {
         if (isConnection(text)) {
             if (clientName.isBlank()) {
@@ -151,7 +162,7 @@ public enum Client {
             // splits on the space after connect (gives us host and port)
             // splits on : to get host as index 0 and port as index 1
             String[] parts = text.trim().replaceAll(" +", " ").split(" ")[1].split(":");
-            connect(parts[0].trim(), Integer.parseInt(parts[1].trim()));
+            connect(parts[0].trim(), Integer.parseInt(parts[1].trim()), text, null);
             return true;
         } else if (isQuit(text)) {
             isRunning = false;
@@ -249,11 +260,25 @@ public enum Client {
             }
             return true;
         }
+        else if (text.equalsIgnoreCase(SWORD)) {
+            try {
+                sendTakeTurn("Sword");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        else if (text.equalsIgnoreCase(SHIELD)) {
+            try {
+                sendTakeTurn("Shield");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
         return false;
     }
 
     // Send methods
-    private void sendTakeTurn(String choice) throws IOException {
+    public void sendTakeTurn(String choice) throws IOException {
         // TurnStatusPayload (only if I need to actually send a boolean)
         Payload p = new Payload();
         //pd438 4/8/2024
@@ -265,7 +290,7 @@ public enum Client {
         ReadyPayload rp = new ReadyPayload();
         out.writeObject(rp);
     }
-    void sendDisconnect() throws IOException {
+     void sendDisconnect() throws IOException {
         ConnectionPayload cp = new ConnectionPayload();
         cp.setPayloadType(PayloadType.DISCONNECT);
         out.writeObject(cp);
@@ -348,7 +373,7 @@ public enum Client {
         inputThread.start();
     }
 
-    private void listenForServerMessage() {
+    private void listenForServerPayload() {
         fromServerThread = new Thread() {
             @Override
             public void run() {
@@ -413,15 +438,20 @@ public enum Client {
         String message;
         switch (p.getPayloadType()) {
             case CLIENT_ID:
-                if (myClientId == Constants.DEFAULT_CLIENT_ID) {
-                    myClientId = p.getClientId();
-                    addClientReference(myClientId, ((ConnectionPayload) p).getClientName());
-                    logger.info(TextFX.colorize("My Client Id is " + myClientId, Color.GREEN));
-                } else {
-                    logger.info(TextFX.colorize("Setting client id to default", Color.RED));
-                }
+            if (myClientId == Constants.DEFAULT_CLIENT_ID) {
+                myClientId = p.getClientId();
+                addClientReference(myClientId, ((ConnectionPayload) p).getClientName());
+                logger.info(TextFX.colorize("My Client Id is " + myClientId, Color.GREEN));
+            } else {
+                logger.info(TextFX.colorize("Setting client id to default", Color.RED));
+            }
+            // events.onReceiveClientId(p.getClientId());
+            events.forEach(e -> {
+                e.onReceiveClientId(p.getClientId());
+            });
                 break;
             case CONNECT:// for now connect,disconnect are all the same
+            
             case DISCONNECT:
                 ConnectionPayload cp = (ConnectionPayload) p;
                 message = TextFX.colorize(String.format("*%s %s*",
@@ -429,25 +459,53 @@ public enum Client {
                         cp.getMessage()), Color.YELLOW);
                 logger.info(message);
             case SYNC_CLIENT:
-                ConnectionPayload cp2 = (ConnectionPayload) p;
-                if (cp2.getPayloadType() == PayloadType.CONNECT || cp2.getPayloadType() == PayloadType.SYNC_CLIENT) {
-                    addClientReference(cp2.getClientId(), cp2.getClientName());
-                } else if (cp2.getPayloadType() == PayloadType.DISCONNECT) {
-                    removeClientReference(cp2.getClientId());
-                }
+            ConnectionPayload cp2 = (ConnectionPayload) p;
+            if (cp2.getPayloadType() == PayloadType.CONNECT || cp2.getPayloadType() == PayloadType.SYNC_CLIENT) {
+                addClientReference(cp2.getClientId(), cp2.getClientName());
+
+            } else if (cp2.getPayloadType() == PayloadType.DISCONNECT) {
+                removeClientReference(cp2.getClientId());
+            }
+            // TODO refactor this to avoid all these messy if condition (resulted from poor
+            // planning ahead)
+            if (cp2.getPayloadType() == PayloadType.CONNECT) {
+                // events.onClientConnect(p.getClientId(), cp2.getClientName(), p.getMessage());
+                events.forEach(e -> {
+                    e.onClientConnect(p.getClientId(), cp2.getClientName(), p.getMessage());
+                });
+            } else if (cp2.getPayloadType() == PayloadType.DISCONNECT) {
+                // events.onClientDisconnect(p.getClientId(), cp2.getClientName(),
+                // p.getMessage());
+                events.forEach(e -> {
+                    e.onClientDisconnect(p.getClientId(), cp2.getClientName(), p.getMessage());
+                });
+            } else if (cp2.getPayloadType() == PayloadType.SYNC_CLIENT) {
+                // events.onSyncClient(p.getClientId(), cp2.getClientName());
+                events.forEach(e -> {
+                    e.onSyncClient(p.getClientId(), cp2.getClientName());
+                });
+            }
 
                 break;
             case JOIN_ROOM:
-                clientsInRoom.clear();// we changed a room so likely need to clear the list
+            clientsInRoom.clear();// we changed a room so likely need to clear the list
+            // events.onResetUserList();
+            events.forEach(e -> {
+                e.onResetUserList();
+            });
                 break;
-            case MESSAGE:
+             case MESSAGE:
+              message = TextFX.colorize(String.format("%s: %s",
+             getClientNameFromId(p.getClientId()),
+             p.getMessage()), Color.BLUE);
+     System.out.println(message);
+     // events.onMessageReceive(p.getClientId(), p.getMessage());
+     events.forEach(e -> {
+         e.onMessageReceive(p.getClientId(), p.getMessage());
+     });
 
-                message = TextFX.colorize(String.format("%s: %s",
-                        getClientNameFromId(p.getClientId()),
-                        p.getMessage()), Color.BLUE);
-                System.out.println(message);
                 break;
-            case LIST_ROOMS:
+                case LIST_ROOMS:
                 try {
                     RoomResultsPayload rp = (RoomResultsPayload) p;
                     // if there's a message, print it
@@ -462,11 +520,15 @@ public enum Client {
                         String msg = String.format("%s %s", (i + 1), rooms.get(i));
                         System.out.println(TextFX.colorize(msg, Color.CYAN));
                     }
+                    // events.onReceiveRoomList(rp.getRooms(), rp.getMessage());
+                    events.forEach(e -> {
+                        e.onReceiveRoomList(rp.getRooms(), rp.getMessage());
+                    });
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
                 break;
-            case READY:
+                case READY:
                 try {
                     ReadyPayload rp = (ReadyPayload) p;
                     if (clientsInRoom.containsKey(rp.getClientId())) {
@@ -477,13 +539,18 @@ public enum Client {
                 }
                 break;
             case PHASE:
-                try {
-                    currentPhase = Enum.valueOf(Phase.class, p.getMessage());
-                } catch (IllegalArgumentException e) {
-                    e.printStackTrace();
-                } catch (NullPointerException e) {
-                    e.printStackTrace();
-                }
+            try {
+                currentPhase = Enum.valueOf(Phase.class, p.getMessage());
+                events.forEach(e -> {
+                    if (e instanceof IGameEvents) {
+                        ((IGameEvents) e).onReceivePhase(currentPhase);
+                    }
+                });
+            } catch (IllegalArgumentException e) {
+                e.printStackTrace();
+            } catch (NullPointerException e) {
+                e.printStackTrace();
+            }
                 break;
             case TURN:
                 try {

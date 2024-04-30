@@ -3,11 +3,13 @@
 ./Client/ClientPlayer.java
 ./Client/ClientUI.java
 ./Client/ClientUtils.java
-./Client/GamePanel.java
 ./Client/ICardControls.java
 ./Client/IClientEvents.java
+./Client/IGameEvents.java
+./Client/Views/ChatGamePanel.java
 ./Client/Views/ChatPanel.java
 ./Client/Views/ConnectionPanel.java
+./Client/Views/GamePanel.java
 ./Client/Views/Menu.java
 ./Client/Views/ReadyPanel.java
 ./Client/Views/RoomListItem.java

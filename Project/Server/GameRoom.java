@@ -1,7 +1,6 @@
 package Project.Server;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -10,7 +9,6 @@ import Project.Common.Constants;
 import Project.Common.Phase;
 import Project.Common.Player;
 import Project.Common.TextFX;
-import Project.Common.EliminationPayload;
 import Project.Common.TimedEvent;
 import Project.Common.TextFX.Color;
 
@@ -93,6 +91,7 @@ public class GameRoom extends Room {
                 syncUserTookTurn(sp);
                 if (currentPlayer != null && currentPlayer.didTakeTurn()) {
                     handleEndOfTurn();
+                    nextTurn();
                 }
             } else {
                 client.sendMessage(Constants.DEFAULT_CLIENT_ID, "You already completed your turn, please wait");
@@ -176,9 +175,13 @@ public class GameRoom extends Room {
     private void checkEarlyEndTurn(int timeRemaining) {
         if (currentPlayer != null && currentPlayer.didTakeTurn()) {
             handleEndOfTurn();
+            nextTurn();
         }
     }
 //pd438 4/19/2024
+/**
+ * 
+ */
 private void handleEndOfTurn() {
     if (turnTimer != null) {
         turnTimer.cancel();
@@ -186,7 +189,7 @@ private void handleEndOfTurn() {
     }
     System.out.println(TextFX.colorize("Handling end of turn", Color.YELLOW));
     // option 1 - if they can only do a turn when ready
-    List<ServerPlayer> playersToProcess = players.values().stream().filter(p-> p.didTakeTurn() && p.getElimination()== false && p.getChoice() != null).toList();
+    final List<ServerPlayer> playersToProcess = players.values().stream().filter(p-> p.didTakeTurn() && p.getElimination()== false && p.getChoice() != null).toList();
     // option 2 - double check they are ready and took a turn
     // List<ServerPlayer> playersToProcess =
     // players.values().stream().filter(sp->sp.isReady() &&
@@ -204,48 +207,80 @@ private void handleEndOfTurn() {
         ServerPlayer p1= playersToProcess.get(i); 
         ServerPlayer p2= playersToProcess.get(nextPlayer);
         
+        
+        //pd438 4/30/2025
         //to display for debugging issues (Rock loses to Paper,Paper loses to Scissor, and Scissor Loses to Paper)
-        if(p1.getChoice().equals("Rock") && p2.getChoice().equals("Paper")){
-            p1.sendElimination(true);
-            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates"+ p1.getClientName(), Color.YELLOW));
-        } else if (p1.getChoice().equals("Scissor") && p2.getChoice().equals("Rock")) {
-            p1.sendElimination(true);
-            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates" + p1.getClientName(), Color.YELLOW));
-        } else if(p1.getChoice().equals("Paper") && p2.getChoice().equals("Scissor")) {
-            p1.sendElimination(true);
-            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates"+ p1.getClientName(), Color.YELLOW));
-        } 
-        else{
-            p1.sendElimination(false);
-        }
-        if(p2.getChoice().equals("Rock") && p1.getChoice().equals("Paper")){
+        if(p1.getChoice().equals("Rock") && p2.getChoice().equals("Scissor")){
             p2.sendElimination(true);
+            p2.setElimination(true);
             sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Eliminates"+ p2.getClientName(), Color.YELLOW));
-        } else if (p2.getChoice().equals("Paper") && p1.getChoice().equals("Scissor")) {
+        } else if (p1.getChoice().equals("Paper") && p2.getChoice().equals("Rock")) {
             p2.sendElimination(true);
+            p2.setElimination(true);
             sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Eliminates" + p2.getClientName(), Color.YELLOW));
-        } else if(p2.getChoice().equals("Scissor") && p1.getChoice().equals("Rock")) {
+        } else if(p1.getChoice().equals("Scissor") && p2.getChoice().equals("Paper")) {
             p2.sendElimination(true);
+            p2.setElimination(true);
             sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Eliminates"+ p2.getClientName(), Color.YELLOW));
-        } else{
-            p2.sendElimination(false);
+        } 
+            else if (p1.getChoice().equals("Sword")&& p2.getChoice().equals("Shield")) {
+                p2.sendElimination(true);
+                p2.setElimination(true);
+                sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Eliminates" + p2.getClientName(),Color.YELLOW));
+            }
+        else if(p2.getElimination() != true) { p2.sendElimination(false);
+        p2.setElimination(false);
+            
         }
+        if(p2.getChoice().equals("Paper") && p1.getChoice().equals("Rock")){
+            p1.sendElimination(true);
+            p1.setElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates"+ p1.getClientName(), Color.YELLOW));
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize("Paper Beats Rock!!!" ,Color.CYAN));
+        } else if (p2.getChoice().equals("Scissor") && p1.getChoice().equals("Paper")) {
+            p1.sendElimination(true);
+            p1.setElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates" + p1.getClientName(), Color.YELLOW));
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize("Scissor Beats Paper!!!" ,Color.CYAN));
+        } else if(p2.getChoice().equals("Rock") && p1.getChoice().equals("Scissor")) {
+            p1.sendElimination(true);
+            p1.setElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates"+ p1.getClientName(), Color.YELLOW));
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize("Rock Beats Shield!!!" ,Color.CYAN));
+        }else if (p2.getChoice().equals("Sword")&& p1.getChoice().equals("Shield")) {
+            p1.sendElimination(true);
+            p1.setElimination(true);
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates" + p1.getClientName(),Color.YELLOW));
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize("Sword Beats Shield!!!" ,Color.CYAN));
+        } 
+        else if (p1.getElimination() != true) {
+            p1.sendElimination(false);
+            p1.setElimination(false);
+        }
+        
         //to display for debugging
         
         }
-        List<ServerPlayer> playersNotEliminatedList = players.values().stream().filter(p-> p.getElimination()== false).toList();
-        int playersnotEliminated = playersNotEliminatedList.size();
+        List<ServerPlayer> processplayersNotEliminated = players.values().stream().filter(p-> p.getElimination()== false).toList();
+        int playersnotEliminated = processplayersNotEliminated.size();
         sendMessage(ServerConstants.FROM_ROOM, playersnotEliminated+ " Players Left");
-        if(playersnotEliminated>1){
+        //More than 1 player remains
+        if(playersnotEliminated>1)
+        {
+            for(int i = 0; i<processplayersNotEliminated.size(); i++){
+                ServerPlayer playersRemaining = processplayersNotEliminated.get(i);
+                sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(playersRemaining.getClientName()+ ",", Color.BLACK));
+            }
             sendMessage(ServerConstants.FROM_ROOM, "There are more than 2 left");
             resetTurns();
         }
         else if (playersnotEliminated == 1) {
-            sendMessage(ServerConstants.FROM_ROOM,"We have a Winner!!!");
+             ServerPlayer playerThatWon = processplayersNotEliminated.get(0);
+            sendMessage(ServerConstants.FROM_ROOM, TextFX.colorize(playerThatWon.getClientName()+"  We have a Winner!!!", Color.CYAN));
             end();
         }
         else if(playersnotEliminated == 0){
-            sendMessage(ServerConstants.FROM_ROOM, "We have a Tie!!!");
+            sendMessage(ServerConstants.FROM_ROOM, TextFX.colorize(" We have a Tie!!!", Color.RED));
             end();
         }
             
@@ -258,15 +293,25 @@ private void handleEndOfTurn() {
         players.values().forEach(p -> p.setChoice(null));
         sendResetLocalTurns();
         changePhase(Phase.READY);
+        sendMessage(ServerConstants.FROM_ROOM, "Show Goes On!! New Round Starting");
         start();
     }
 
     private void end() {
         System.out.println(TextFX.colorize("Doing game over", Color.YELLOW));
         turnOrder.clear();
-        players.clear();
+        players.values().forEach(p -> {
+            p.setReady(false);
+            p.setTakenTurn(false);
+            p.setElimination(false);
+            p.setChoice(null);
+
+        });
+        //depending if this is not called yet, we can clear this state
+        sendResetLocalTurns();
+        sendResetLocalReadyState();
         changePhase(Phase.READY);
-        sendMessage(ServerConstants.FROM_ROOM,  "Game over! Start a new game by setting up players and issuing ready checks.");
+        sendMessage(ServerConstants.FROM_ROOM,  "Game over!");
     }
 
     private void sendCurrentPlayerTurn() {
@@ -276,7 +321,13 @@ private void handleEndOfTurn() {
             sp.sendCurrentPlayerTurn(currentPlayer == null ? Constants.DEFAULT_CLIENT_ID : currentPlayer.getClientId());
         }
     }
-
+    private void sendResetLocalReadyState(){
+        Iterator<ServerPlayer> iter = players.values().iterator();
+        while(iter.hasNext()) {
+            ServerPlayer sp = iter.next();
+            sp.sendCurrentPlayerTurn(currentPlayer == null ? Constants.DEFAULT_CLIENT_ID : currentPlayer.getClientId());
+        }
+    }
     private void sendResetLocalTurns() {
         players.values().forEach(ServerPlayer::sendResetLocalTurns);
     }
