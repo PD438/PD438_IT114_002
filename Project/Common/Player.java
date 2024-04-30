@@ -5,11 +5,21 @@ package Project.Common;
  */
 public class Player {
     private boolean isReady;
-
+    private String previousChoice;
 
     public boolean isReady() {
         return isReady;
     }
+
+    //pd438 04/30/2024
+    public String getpreviousChoice(){
+        return previousChoice;
+    }
+
+    public void setpreviousChoice(String previousChoice){
+        this.previousChoice = previousChoice;
+    }
+
 
     public void setReady(boolean isReady) {
         this.isReady = isReady;
@@ -38,6 +48,7 @@ public class Player {
     //pd438 Send choice to ServerThread 4/8/2024
     private String choice; 
     private boolean isEliminated;
+    
 
     public String getChoice(){
         return choice;

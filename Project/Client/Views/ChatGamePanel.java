@@ -27,7 +27,7 @@ public class ChatGamePanel extends JPanel {
         chatPanel.setBackground(Color.GRAY);
 
         final JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, gamePanel, chatPanel);
-        splitPane.setResizeWeight(.6);
+        splitPane.setResizeWeight(.5);
 
         splitPane.setOneTouchExpandable(false); // This disables the one-touch expandable buttons
         splitPane.setEnabled(false); // This makes the divider non-movable

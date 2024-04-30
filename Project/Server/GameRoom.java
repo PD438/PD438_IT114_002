@@ -5,6 +5,9 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.w3c.dom.Text;
+
 import Project.Common.Constants;
 import Project.Common.Phase;
 import Project.Common.Player;
@@ -83,15 +86,26 @@ public class GameRoom extends Room {
                 client.sendMessage(Constants.DEFAULT_CLIENT_ID, "Sorry, you weren't ready in time and can't participate");
                 return;
             }
+            //pd438 4/30/2024 Elimination Implementation 
+            if (sp.getElimination()) {
+                client.sendMessage(Constants.DEFAULT_CLIENT_ID, "Sorry, You are Out Already");
+                return;
+            }
+            //Pd438 previous Choice Implementation
+            if (sp.getpreviousChoice() == choice) {
+                client.sendMessage(Constants.DEFAULT_CLIENT_ID, "You Already Chose this!!!");
+                return;
+            }
             if (!sp.didTakeTurn()) {
                 sp.setChoice(choice);
                 sp.sendChoice(choice);
                 sp.setTakenTurn(true);
+                //pd438 previous choice implementation
+                sp.setpreviousChoice(choice);
                 sendMessage(ServerConstants.FROM_ROOM, String.format("%s completed their turn", sp.getClientName()));
                 syncUserTookTurn(sp);
                 if (currentPlayer != null && currentPlayer.didTakeTurn()) {
                     handleEndOfTurn();
-                    nextTurn();
                 }
             } else {
                 client.sendMessage(Constants.DEFAULT_CLIENT_ID, "You already completed your turn, please wait");
@@ -175,7 +189,6 @@ public class GameRoom extends Room {
     private void checkEarlyEndTurn(int timeRemaining) {
         if (currentPlayer != null && currentPlayer.didTakeTurn()) {
             handleEndOfTurn();
-            nextTurn();
         }
     }
 //pd438 4/19/2024
@@ -228,6 +241,11 @@ private void handleEndOfTurn() {
                 p2.setElimination(true);
                 sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Eliminates" + p2.getClientName(),Color.YELLOW));
             }
+            //pd438 Skip Turn Implementation
+            else if (p1.equals("Pass")) {
+                sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Has Skipped", Color.BLACK));
+              end();  
+            }
         else if(p2.getElimination() != true) { p2.sendElimination(false);
         p2.setElimination(false);
             
@@ -246,13 +264,17 @@ private void handleEndOfTurn() {
             p1.sendElimination(true);
             p1.setElimination(true);
             sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates"+ p1.getClientName(), Color.YELLOW));
-            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize("Rock Beats Shield!!!" ,Color.CYAN));
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize("Rock Beats Scissor!!!" ,Color.CYAN));
         }else if (p2.getChoice().equals("Sword")&& p1.getChoice().equals("Shield")) {
             p1.sendElimination(true);
             p1.setElimination(true);
             sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p2.getClientName() + "Eliminates" + p1.getClientName(),Color.YELLOW));
             sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize("Sword Beats Shield!!!" ,Color.CYAN));
         } 
+        else if (p2.equals("Pass")) {
+            sendMessage(ServerConstants.FROM_ROOM,TextFX.colorize(p1.getClientName() + "Has Skipped", Color.BLACK));
+        end();
+        }
         else if (p1.getElimination() != true) {
             p1.sendElimination(false);
             p1.setElimination(false);

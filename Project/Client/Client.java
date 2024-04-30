@@ -47,6 +47,7 @@ public enum Client {
     private static final String ROCK = "/Rock";
     private static final String PAPER = "/Paper";
     private static final String SCISSOR  = "/Scissor";
+    //pd438 4/30/2024
     private static final String SWORD = "/Sword";
     private static final String SHIELD = "/Shield";
     // client id, is the key, client name is the value
