@@ -101,6 +101,19 @@ public class GamePanel extends JPanel implements IGameEvents {
         gridPanel.add(shieldButton);
         this.add(gridPanel);
 
+        JButton skipButton = new JButton();
+        skipButton.setText("Skip");
+        skipButton.addActionListener(l -> {
+            try {
+                Client.INSTANCE.sendTakeTurn("Skip");
+            } catch (IOException e1) {
+
+                e1.printStackTrace();
+            }
+        });
+        gridPanel.add(skipButton);
+        this.add(gridPanel);
+
         add("GRID", gridPanel);
         setVisible(false);
         // don't need to add this to ClientUI as this isn't a primary panel(it's nested
